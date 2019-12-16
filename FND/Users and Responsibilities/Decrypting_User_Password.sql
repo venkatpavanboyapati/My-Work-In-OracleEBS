@@ -1,10 +1,4 @@
 
-/*********************************************************
-*PURPOSE: Package to fetch and decrypt UserPassword      *
-*                                                        *
-*AUTHOR: Pavan Boyapati                                  *
-**********************************************************/
-
 --Package Specification
 CREATE OR REPLACE PACKAGE get_pwd
 AS
