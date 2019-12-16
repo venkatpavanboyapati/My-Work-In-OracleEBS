@@ -1,8 +1,4 @@
 
-/********************************************************************
- *PURPOSE: Fetch Active Responsibilities assigned to a Active user  *
- *AUTHOR:  Pavan Boyapati                                           *
- *********************************************************************/
 SELECT fu.user_name,
        fu.start_date USER_START_DATE,
        fu.end_date USER_END_DATE, 
