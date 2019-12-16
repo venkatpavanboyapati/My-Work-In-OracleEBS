@@ -1,7 +1,4 @@
-/**************************************************************************
- *PURPOSE: Script to create application user login account                *
- *AUTHOR: Pavan Boyapati                                                  *
- **************************************************************************/
+
 DECLARE
   p_user_name                  VARCHAR2 (200)       := 'PBOYA01';
   p_owner                      VARCHAR2 (200)       := NULL;
