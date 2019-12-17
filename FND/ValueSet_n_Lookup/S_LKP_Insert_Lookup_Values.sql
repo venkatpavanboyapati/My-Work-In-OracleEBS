@@ -1,8 +1,4 @@
 
-
-
-
-
 Step1 : Create a table to stage data to insert into Lookup.
 
 CREATE TABLE XX_LOOKUP_TEMP_TABLE
