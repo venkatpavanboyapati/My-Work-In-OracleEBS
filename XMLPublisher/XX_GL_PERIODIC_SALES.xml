@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<dataTemplate name="PERIODIC_SALES" defaultPackage="xx_periodic_sales_pkg" version="1.0"> 
+  <parameters>
+    <parameter name="P_REPORT_LENGTH" dataType = "character"></parameter>
+    <parameter name="P_PERCENT_DESC" dataType = "character"></parameter>
+    <parameter name="P_PERIOD_NAME" dataType = "character"></parameter>
+    <parameter name="P_START_DATE" dataType = "date"></parameter>
+    <parameter name="P_END_DATE" dataType = "date"></parameter>
+  </parameters>
+  <lexicals>
+  </lexicals>
+  <dataQuery>
+	<sqlStatement name = "Q_PERIODIC_SALES">
+		<![CDATA[
+                    SELECT COMPANY
+                          ,SITE
+                          ,ACCOUNT
+                          ,TO_CHAR(CREATION_DATE,'DD-MON-YYYY') CREATION_DATE
+                          ,TO_CHAR(EFFECTIVE_DATE,'DD-MON-YYYY') EFFECTIVE_DATE
+                          ,JE_SOURCE
+                          ,AMOUNT
+                          ,CALCULATED_AMOUNT
+                          ,LEASE_OWN_DESC
+                    FROM XXWEN_GL_PERIODIC_SALES
+                    ORDER BY COMPANY
+                            ,SITE
+                            ,ACCOUNT
+		]]>	
+	</sqlStatement>
+  </dataQuery>
+  <dataTrigger name="beforeReport" source="xxwen_gl_periodic_sales_pkg.main(:P_REPORT_LENGTH,:P_PERCENT_DESC,:P_PERIOD_NAME,:P_START_DATE,:P_END_DATE)"/>
+  <dataStructure>
+      <group name="GRAND_TOTAL" source="Q_PERIODIC_SALES" groupFilter="">
+          <element name="GT_AMOUNT" value="AMOUNT" function="sum()"/>
+          <element name="GT_CALC_AMOUNT" value="CALCULATED_AMOUNT" function="sum()"/>
+          <group name="COMPANY_TOTAL" source="Q_PERIODIC_SALES" groupFilter="">
+              <element name="COMPANY" value="COMPANY" function=""/>
+              <element name="ST_AMOUNT" value="AMOUNT" function="sum()"/>
+              <element name="ST_CALC_AMOUNT" value="CALCULATED_AMOUNT" function="sum()"/>
+              <group name="PERIODIC_SALES" source="Q_PERIODIC_SALES" groupFilter="">   
+                  <element name="COMPANY" value="COMPANY" function=""/>    
+                  <element name="SITE" value="SITE" function=""/>
+                  <element name="ACCOUNT" value="ACCOUNT" function=""/>
+                  <element name="CREATION_DATE" value="CREATION_DATE" function=""/>
+                  <element name="EFFECTIVE_DATE" value="EFFECTIVE_DATE" function=""/>
+                  <element name="JE_SOURCE" value="JE_SOURCE" function=""/>
+                  <element name="LEASE_OWN_DESC" value="LEASE_OWN_DESC" function=""/>
+                  <element name="AMOUNT" value="AMOUNT" function=""/> 
+                  <element name="CALCULATED_AMOUNT" value="CALCULATED_AMOUNT" function=""/>
+              </group>
+          </group>
+      </group>
+  </dataStructure>
+</dataTemplate>

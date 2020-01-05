@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+
+<dataTemplate name="XX_ACTVTY_COMMITMTS" description="Project Activity and Commitments Report">
+<properties>
+      <property name="include_parameters" value="true"/>
+     <property name="include_null_Element" value="false" /> 
+      <property name="xml_tag_case" value="UPPER"/>
+      <property name="debug_mode" value="off" />  
+	  <property name="scalable_mode" value="on" />
+</properties>       
+<parameters>	
+	<parameter name="P_PROJECT_TYPE" dataType="CHARACTER"> </parameter>
+	<parameter name="P_PROJECT_STATUS" dataType="CHARACTER"> </parameter>
+    <parameter name="P_PROJECT_ID" dataType = "CHARACTER" ></parameter>
+	 <parameter name="P_BUYER_GROUP" dataType = "CHARACTER" ></parameter>
+	 <parameter name="P_KEY_CONTACT" dataType = "CHARACTER" ></parameter>
+	 <parameter name="P_AREA" dataType = "CHARACTER" ></parameter>
+	
+</parameters>
+      <dataQuery>
+	  <sqlStatement name="Q_Parameters">
+	  <![CDATA[
+		SELECT TO_CHAR (SYSDATE, 'DD-MON-YYYY HH24:MI:SS') RUN_DATE,
+       (SELECT segment1
+          FROM apps.pa_projects
+         WHERE project_id = :P_PROJECT_ID)
+          proj_num_param,
+		(SELECT period_year from apps.pa_periods_v
+		where status = 'O' and current_pa_period_flag = 'Y') period_year,
+		(SELECT full_name 
+		   FROM PER_ALL_PEOPLE_F
+		  where person_id = :P_KEY_CONTACT) 
+		  key_contact_param
+  FROM DUAL
+		]]>
+	  </sqlStatement>
+		<sqlStatement name="Q_main">
+              <![CDATA[
+  SELECT p.segment1 project_number,
+         p.project_type,
+         p.name project_name,
+		 p.project_status_code project_status,
+         pt.attribute9 group_name,
+         p.attribute1 project_company,
+		 p.attribute2 project_cost_ctr,
+		 xwch.area project_area,
+		 xwch.division,
+		 xwch.division_description,
+		 xwch.region,
+		 xwch.region_description,
+         NULL open_reopen_date,
+         NULL gc_contract_amt,
+         NULL final_budget_amt,
+         pab.base_raw_cost_tot budget,
+         paa.raw_cost_itd projltd_actuals,
+         pab.base_raw_cost_tot - paa.raw_cost_itd Over_Under_Budget,
+         decode(ppv.period_year, (select period_year from apps.pa_periods_v where status = 'O' and current_pa_period_flag = 'Y'
+		 and rownum < 2),paa.raw_cost_ytd,0) expenditures_ytd,
+         pac.cmt_raw_cost_itd open_commitments,
+		(SELECT attribute1
+		FROM pa_budget_versions a
+		WHERE     1 = 1
+		AND project_id = pah.project_id
+		AND budget_type_code = 'AC'
+		AND budget_status_code = 'B'
+		AND current_flag = 'Y'
+		AND approved_cost_plan_type_flag = 'Y'
+		AND rownum < 2) budget_year,
+	   (SELECT c.full_name
+		FROM pa_project_players a,
+		  pa_project_role_types b,
+		  PER_ALL_PEOPLE_F c
+		WHERE a.project_id = pah.project_id
+		and a.project_role_type = b.project_role_type
+		AND b.meaning             = 'XX Key Contact'
+		AND a.person_id           = c.person_id
+		and a.person_id           = nvl(:P_KEY_CONTACT,a.person_id)
+		and trunc(sysdate) between a.start_date_active and nvl(a.end_date_active,trunc(sysdate))
+		and rownum < 2) key_contact
+    FROM apps.pa_projects p,
+         apps.pa_project_accum_headers pah,
+         apps.pa_project_accum_budgets pab,
+         apps.pa_project_accum_actuals paa,
+         apps.pa_project_accum_commitments pac,
+         apps.pa_tasks t,
+         apps.pa_resources r,
+         xxarg.xxarg_XX_cc_hierarchy xwch,
+		 pa_project_types pt,
+		 pa_project_players prp,
+		 pa_project_role_types prt,
+		 apps.pa_periods_v ppv
+   WHERE     p.template_flag <> 'Y'
+         AND p.project_id = pah.project_id
+         AND pah.task_id = t.task_id(+)
+         AND t.task_number IS NULL
+         AND p.attribute2 = xwch.cost_ctr(+)
+		 AND nvl(xwch.area,1) = nvl(:P_AREA,nvl(xwch.area,1))
+         AND r.name IS NULL
+         AND pah.resource_id = r.resource_id(+)
+         AND pah.project_accum_id = pab.project_accum_id(+)
+         AND pab.budget_type_code(+) = 'AC'
+         AND pah.project_accum_id = paa.project_accum_id(+)
+         AND pah.project_accum_id = pac.project_accum_id(+)
+         AND p.project_type = nvl(:P_PROJECT_TYPE, p.project_type)
+         AND p.project_id = nvl(:P_PROJECT_ID, p.project_id)
+         AND p.project_status_code = nvl(:P_PROJECT_STATUS, p.project_status_code)
+		    AND P.project_type = pt.project_type
+     AND P.org_id = pt.org_id
+     and ( :P_BUYER_GROUP IS NULL OR nvl(pt.attribute9, 'X') = :P_BUYER_GROUP)
+  and p.project_id = prp.project_id (+)
+  and prp.project_role_type = prt.project_role_type (+)
+  and trunc(sysdate) between nvl(prp.start_date_active,trunc(sysdate)) and nvl(prp.end_date_active,trunc(sysdate))
+  and nvl(prp.person_id,1) = nvl(:p_key_contact,nvl(prp.person_id,1))
+  and nvl(prt.meaning,'XX Key Contact') = 'XX Key Contact'
+  and pah.accum_period = ppv.period_name
+ORDER BY 1, 2, 3
+                      ]]>		         	
+          </sqlStatement>	
+		  
+		  <sqlStatement name="Q_details">
+              <![CDATA[
+		  SELECT ponbr po_number,
+         y.agent_name,
+         poline po_line_number,
+         projnbr project_number1,
+         projtype project_type1,
+         project_status_code project_status1,
+         project_cost_ctr project_cost_ctr1,
+         project_area project_area1,
+         task_number,
+         task_name,
+         chgacct charge_acct,
+         round ( (qtyordrd - qtyinvcd - qtycancld) / qtyordrd, 2) * 100
+            qtypctremain,
+         ttlcommit tot_proj_commitment, TRANSACTION_SOURCE
+    FROM apps.po_headers x,
+         apps.po_agents_v y,
+         (  SELECT b.segment1 projnbr,
+                   b.project_type projtype,
+                   b.project_status_code,
+                   b.attribute2 project_cost_ctr,
+                   xwch.area project_area,
+                   c.task_number,
+                   c.task_name,
+                   a.cmt_header_id poid,
+                   a.cmt_number ponbr,
+                   a.cmt_line_number poline,
+                   c.attribute1 || '.' || c.attribute2 || '.' || c.attribute3
+                      chgacct,
+					  case when TRANSACTION_SOURCE  = 'ORACLE_PURCHASING' then 
+                   'Purchase Order'
+                     when TRANSACTION_SOURCE  = 'ORACLE_PAYABLES' then
+                     'Supplier Invoice'
+                     else
+                     'Unknown'
+                     end TRANSACTION_SOURCE, 
+                   SUM (a.quantity_ordered) qtyordrd,
+                   SUM (a.quantity_invoiced) qtyinvcd,
+                   SUM (a.quantity_cancelled) qtycancld,
+                   SUM (a.tot_cmt_raw_cost) ttlcommit,
+                   SUM (a.amount_ordered) amtordrd,
+                   SUM (a.amount_invoiced) amtinvcd,
+                   SUM (a.amount_cancelled) amtcancld
+              FROM apps.pa_commitment_txns a,
+                   apps.pa_projects b,
+                   apps.pa_tasks c,
+                   apps.pa_project_types pt,
+                   xxarg.xxarg_XX_cc_hierarchy xwch,
+                   apps.pa_project_role_types prt, 
+                   apps.pa_project_players prp
+             WHERE     a.project_id = b.project_id
+-- rdevic1 mod 06/09/2016 - Comment following condition
+                  -- AND b.closed_date IS NULL
+                   AND a.task_id = c.task_id
+                   AND b.project_type = NVL ( :P_PROJECT_TYPE, b.project_type)
+                   AND b.project_id = NVL ( :P_PROJECT_ID, b.project_id)
+                   AND b.project_status_code =
+                          NVL ( :P_PROJECT_STATUS, b.project_status_code)
+			             AND B.project_type = pt.project_type
+                   AND B.org_id = pt.org_id
+-- rdevic1 mod 06/09/2016 - add outer join to XWCH table
+                   and b.attribute2 = xwch.cost_ctr (+)
+                   and nvl(xwch.area,1) = nvl(:P_AREA,nvl(xwch.area,1))
+                   and b.project_id = prp.project_id (+)
+                   and prp.project_role_type = prt.project_role_type (+)
+                   and trunc(sysdate) between nvl(prp.start_date_active,trunc(sysdate)) and nvl(prp.end_date_active,trunc(sysdate))
+                   and nvl(prp.person_id,1) = nvl(:P_KEY_CONTACT,nvl(prp.person_id,1))
+                   and nvl(prt.meaning,'XX Key Contact') = 'XX Key Contact'
+      and ( :P_BUYER_GROUP IS NULL OR nvl(pt.attribute9, 'X') = :P_BUYER_GROUP)
+          GROUP BY b.segment1,
+                   b.project_type,
+                   b.project_status_code,	
+                    b.attribute2,
+                   xwch.area,
+                   cmt_number,
+                   a.cmt_line_number,
+                   c.task_number,
+                   c.task_name,
+                   a.cmt_header_id,
+                   c.attribute1 || '.' || c.attribute2 || '.' || c.attribute3,
+				   case when TRANSACTION_SOURCE  = 'ORACLE_PURCHASING' then 
+                   'Purchase Order'
+                     when TRANSACTION_SOURCE  = 'ORACLE_PAYABLES' then
+                     'Supplier Invoice'
+                     else
+                     'Unknown'
+                     end)
+         z
+   WHERE z.poid = x.po_header_id(+) AND x.agent_id = y.agent_id(+)
+ORDER BY 1, 3, 5
+ ]]>		         	
+          </sqlStatement>	
+		  
+		  
+	</dataQuery>   	
+	<dataStructure>
+		<group name="G_PARAMS" source="Q_Parameters">
+			<element name="RUN_DATE" value="RUN_DATE" />
+			<element name="PROJ_NUM_PARAM" value="PROJ_NUM_PARAM" />
+			<element name="KEY_CONTACT_PARAM" value="KEY_CONTACT_PARAM" />
+			<element name="PERIOD_YEAR" value="PERIOD_YEAR" />
+	   </group>
+	   <group name="Q_main" source="Q_main">
+			<element name="PROJECT_NUMBER" value="PROJECT_NUMBER" />
+			<element name="PROJECT_TYPE" value="PROJECT_TYPE" />
+			<element name="PROJECT_NAME" value="PROJECT_NAME" />
+			<element name="PROJECT_STATUS" value="PROJECT_STATUS" />
+			<element name="GROUP_NAME" value="GROUP_NAME" />
+			<element name="PROJECT_COMPANY" value="PROJECT_COMPANY" />
+			<element name="PROJECT_COST_CTR" value="PROJECT_COST_CTR" />
+			<element name="OPEN_REOPEN_DATE" value="OPEN_REOPEN_DATE" />
+			<element name="GC_CONTRACT_AMT" value="GC_CONTRACT_AMT" />
+			<element name="FINAL_BUDGET_AMT" value="FINAL_BUDGET_AMT" />
+			<element name="BUDGET" value="BUDGET" />
+			<element name="PROJLTD_ACTUALS" value="PROJLTD_ACTUALS" />
+			<element name="OVER_UNDER_BUDGET" value="OVER_UNDER_BUDGET" />
+			<element name="EXPENDITURES_YTD" value="EXPENDITURES_YTD" />
+			<element name="OPEN_COMMITMENTS" value="OPEN_COMMITMENTS" />
+			<element name="BUDGET_YEAR" value="BUDGET_YEAR" />
+			<element name="KEY_CONTACT" value="KEY_CONTACT" />
+			<element name="PROJECT_AREA" value="PROJECT_AREA" />
+		 </group>
+		 
+	<group name="Q_details" source="Q_details">
+			<element name="PO_NUMBER" value="PO_NUMBER" />
+			<element name="AGENT_NAME" value="AGENT_NAME" />
+			<element name="PO_LINE_NUMBER" value="PO_LINE_NUMBER" />
+			<element name="PROJECT_NUMBER1" value="PROJECT_NUMBER1" />
+			<element name="PROJECT_TYPE1" value="PROJECT_TYPE1" />
+			<element name="PROJECT_STATUS1" value="PROJECT_STATUS1" />
+			<element name="TASK_NUMBER" value="TASK_NUMBER" />
+			<element name="TASK_NAME" value="TASK_NAME" />
+			<element name="CHARGE_ACCT" value="CHARGE_ACCT" />
+			<element name="QTYPCTREMAIN" value="QTYPCTREMAIN" />
+			<element name="TOT_PROJ_COMMITMENT" value="TOT_PROJ_COMMITMENT" />
+			<element name="TRANSACTION_SOURCE" value="TRANSACTION_SOURCE" />
+			<element name="PROJECT_COST_CTR1" value="PROJECT_COST_CTR1" />
+			<element name="PROJECT_AREA1" value="PROJECT_AREA1" />
+		 </group>
+	</dataStructure>
+</dataTemplate>

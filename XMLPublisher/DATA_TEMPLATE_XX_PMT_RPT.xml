@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<dataTemplate name="XX_PMT_RPT_DT"  version="1.0">
+<properties>
+<property name="xml_tag_case" value="upper" />
+</properties>
+<parameters>
+<parameter name="p_start_date" dataType = "date"></parameter>
+<parameter name="p_end_date" dataType = "date"></parameter>
+<parameter name="p_customer_number" dataType = "character"></parameter>
+<parameter name="p_site_number" dataType = "character"></parameter>
+</parameters>
+<lexicals>
+</lexicals>
+<dataQuery>
+<sqlStatement name="Q_main">
+<![CDATA[
+  SELECT act.account_name,
+         SUBSTR (act.account_number, 1, 5) cons_num,
+         SUBSTR (ship.location, 6, 5) site_num,
+         loc.address1,
+         trx.trx_number,
+         trx.trx_date,
+         line.description,
+         nvl(line.quantity_ordered,line.quantity_invoiced) quantity_ordered,
+         app.apply_date,
+         rec.receipt_number,
+         app.amount_applied,
+         line.unit_selling_price
+    FROM ar.HZ_CUST_ACCOUNTS act,
+         ra_customer_trx trx,
+         ar.RA_CUSTOMER_TRX_LINES_ALL line,
+         ar.AR_RECEIVABLE_APPLICATIONS_ALL app,
+         ar.AR_CASH_RECEIPTS_ALL rec,
+         hz_cust_site_uses ship,
+         hz_cust_acct_sites ssite,
+         ar.hz_parties par,
+         ar.hz_party_sites psit,
+         ar.hz_locations loc
+   WHERE     trx.customer_trx_id = line.customer_trx_id
+         AND line.line_type <> 'TAX' 
+         AND trx.ship_to_site_use_id = ship.site_use_id
+         AND ssite.cust_account_id = act.cust_account_id
+         AND act.party_id = par.party_id
+         AND par.party_id = psit.party_id
+         AND ssite.party_site_id = psit.party_site_id
+         AND ship.cust_acct_site_id = ssite.cust_acct_site_id
+         AND psit.location_id = loc.location_id
+         AND trx.CUST_TRX_TYPE_ID IN (1328,
+                                      1345,
+                                      1329,
+                                      1346)
+         AND ship.status = 'A'
+         AND trx.customer_trx_id = app.applied_customer_trx_id
+         AND rec.cash_receipt_id = app.cash_receipt_id
+         AND trx.trx_date >= :p_start_date
+         AND trx.trx_date <= :p_end_date
+		 AND SUBSTR (ship.location, 6, 5) = NVL(:p_site_number,SUBSTR (ship.location, 6, 5))
+         AND act.account_number = NVL(:p_customer_number,act.account_number)			 
+ORDER BY act.account_name, loc.address1
+]]>
+</sqlStatement>
+</dataQuery>
+</dataTemplate>
